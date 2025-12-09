@@ -1,7 +1,3 @@
-#############
-# VARIABLES #
-#############
-
 variable "region" {
   type    = string
   default = "us-east-1"
@@ -12,146 +8,102 @@ variable "instance_type" {
   default = "t2.micro"
 }
 
-###########
-# PROVIDER #
-###########
-
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 provider "aws" {
   region = var.region
 }
-
-############
-#   VPC    #
-############
-
-resource "aws_vpc" "chow321_vpc" {
+resource "aws_vpc" "chow321-vpc" {
   cidr_block = "10.0.0.0/16"
-
   tags = {
     Name = "chow321-vpc"
   }
 }
 
-######################
-# PUBLIC SUBNET      #
-######################
-
-resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.chow321_vpc.id
+resource "aws_subnet" "chow321-vpc-public-subnet" {
+  vpc_id            = aws_vpc.chow321-vpc.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "${var.region}a"
-
   tags = {
     Name = "chow321-public-subnet"
   }
 }
 
-###############################
-# INTERNET GATEWAY            #
-###############################
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.chow321_vpc.id
-
+resource "aws_internet_gateway" "chow321-igw" {
+  vpc_id = aws_vpc.chow321-vpc.id
   tags = {
     Name = "chow321-igw"
   }
 }
 
-###############################
-# ROUTE TABLE + ASSOCIATION   #
-###############################
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.chow321_vpc.id
+resource "aws_route_table" "chow321-vpc-routetable" {
+  vpc_id = aws_vpc.chow321-vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+    gateway_id = aws_internet_gateway.chow321-igw.id
   }
 
   tags = {
-    Name = "chow321-public-rt"
+    Name = "chow321-vpc-routetable"
   }
 }
 
-resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public.id
+resource "aws_route_table_association" "chow321-public-subnet-assoc-to-routetable" {
+  subnet_id      = aws_subnet.chow321-vpc-public-subnet.id
+  route_table_id = aws_route_table.chow321-vpc-routetable.id
 }
 
-##########################
-# SECURITY GROUP         #
-##########################
-
-resource "aws_security_group" "sg" {
+resource "aws_security_group" "chow321-sg" {
   name   = "chow321-sg"
-  vpc_id = aws_vpc.chow321_vpc.id
+  vpc_id = aws_vpc.chow321-vpc.id
 
   tags = {
     Name = "chow321-sg"
   }
+
 }
 
-# Allow HTTP (80)
-resource "aws_security_group_rule" "http_in" {
+resource "aws_security_group_rule" "Allow-inbound-http" {
   type              = "ingress"
   from_port         = 80
   to_port           = 80
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.sg.id
+  security_group_id = aws_security_group.chow321-sg.id
 }
 
-# Allow SSH (22) - BEST PRACTICE: restrict to your IP
-resource "aws_security_group_rule" "ssh_in" {
+resource "aws_security_group_rule" "Allow-inbound-ssh" {
   type              = "ingress"
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"] # Replace with your IP for production!
-  security_group_id = aws_security_group.sg.id
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.chow321-sg.id
 }
 
-# Allow ALL outbound
-resource "aws_security_group_rule" "all_out" {
+resource "aws_security_group_rule" "Allow-all-outbound" {
   type              = "egress"
   from_port         = 0
-  to_port           = 65535
+  to_port           = 65355
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.sg.id
+  security_group_id = aws_security_group.chow321-sg.id
 }
 
-###################
-# EC2 INSTANCE    #
-###################
 
-resource "aws_instance" "vm" {
-  ami                         = "ami-07860a2d7eb515d9a" # Amazon Linux 2023
-  instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.public_subnet.id
-  vpc_security_group_ids      = [aws_security_group.sg.id]
+resource "aws_instance" "chow321-vm" {
+  ami                         = "ami-07860a2d7eb515d9a"
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.chow321-vpc-public-subnet.id
+  vpc_security_group_ids      = [aws_security_group.chow321-sg.id]
   associate_public_ip_address = true
 
   user_data = <<-EOF
     #!/bin/bash
-    yum update -y
-    yum install -y nginx
-    echo "Hello, World from $(hostname -f)" > /usr/share/nginx/html/index.html
-    systemctl start nginx
-    systemctl enable nginx
+    sudo yum update -y
+    sudo yum install -y nginx
+    echo "Hello, World from $(hostname -f)" | sudo tee /usr/share/nginx/html/index.html
+    sudo systemctl start nginx
+    sudo systemctl enable nginx
   EOF
 
   tags = {
@@ -159,14 +111,11 @@ resource "aws_instance" "vm" {
   }
 }
 
-##########
-# OUTPUTS #
-##########
 
 output "vpc_id" {
-  value = aws_vpc.chow321_vpc.id
+  value = aws_vpc.chow321-vpc.id
 }
 
-output "vm_public_ip" {
-  value = aws_instance.vm.public_ip
+output "vm-public-ip" {
+  value = aws_instance.chow321-vm.public_ip
 }

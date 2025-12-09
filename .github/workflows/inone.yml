@@ -5,7 +5,7 @@ on:
 
 jobs:
   terraform:
-    runs-on: self
+    runs-on: self-hosted
 
     steps:
     - name: Checkout

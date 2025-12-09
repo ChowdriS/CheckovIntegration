@@ -17,15 +17,15 @@ jobs:
     - name: Terraform PLAN
       run: |
         cd infra
+
+        echo "Initializing Terraform"
+        terraform init
         
         echo "Running terraform fmt"
         terraform fmt -check
 
         echo "Running terraform validate"
         terraform validate
-
-        echo "Initializing Terraform"
-        terraform init
 
         echo "Creating Terraform plan"
         terraform plan -out=tfplan

@@ -2,10 +2,21 @@ name: Terraform CI/CD
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Choose environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   terraform:
     runs-on: self-hosted
+    
+    env:
+      ENV: ${{ github.event.inputs.environment }}
 
     steps:
     - name: Checkout
@@ -18,6 +29,8 @@ jobs:
       run: |
         cd infra
 
+        echo "Environment chosen: ${ENV}"
+
         echo "Initializing Terraform"
         terraform init
         
@@ -28,7 +41,7 @@ jobs:
         terraform validate
 
         echo "Creating Terraform plan"
-        terraform plan -out=tfplan
+        terraform plan -var-file="${ENV}.tfvars" -out=tfplan
 
     - name: Upload plan artifact
       uses: actions/upload-artifact@v4
@@ -46,7 +59,6 @@ jobs:
       run: |
         cd infra
         
-        echo "Applying Terraform plan"
+        echo "Applying Terraform plan for ENV=${ENV}"
         terraform init
-
         terraform apply -auto-approve ../planfile/tfplan

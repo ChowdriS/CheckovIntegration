@@ -1,3 +1,11 @@
+variable "region" {
+  type    = string
+}
+
+variable "instance_type" {
+  type    = string
+}
+
 provider "aws" {
   region = var.region
 }
@@ -82,7 +90,7 @@ resource "aws_security_group_rule" "Allow-all-outbound" {
 
 resource "aws_instance" "chow321-vm" {
   ami                         = "ami-07860a2d7eb515d9a"
-  instance_type               = "t3.micro"
+  instance_type               = var.instance_type
   subnet_id                   = aws_subnet.chow321-vpc-public-subnet.id
   vpc_security_group_ids      = [aws_security_group.chow321-sg.id]
   associate_public_ip_address = true
